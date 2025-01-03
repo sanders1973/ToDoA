@@ -39,6 +39,7 @@ app_ui = ui.page_sidebar(
         ui.input_text("github_repo", "Repository (user/repo)"),
         ui.input_text("github_path", "File path (e.g., tasks.txt)"),
         ui.input_action_button("save_github", "Save to GitHub", class_="btn-success"),
+        ui.input_action_button("load_github", "Load from GitHub", class_="btn-info"),
         ui.output_text("github_status_output"),
         width=350
     ),
@@ -324,6 +325,68 @@ def server(input, output, session):
         except Exception as e:
             github_status.set(f"Error: {str(e)}")
 
-    # [Rest of the previous code remains the same]
+    @reactive.effect
+    def load_from_github():
+        if not input.github_token() or not input.github_repo() or not input.github_path():
+            return
+
+        try:
+            # GitHub API endpoint
+            repo = input.github_repo()
+            path = input.github_path()
+            url = f"https://api.github.com/repos/{repo}/contents/{path}"
+
+            # Headers for authentication
+            headers = {
+                "Authorization": f"token {input.github_token()}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+
+            # Get the file content
+            response = requests.get(url, headers=headers)
+            
+            if response.status_code == 200:
+                # Decode content from base64
+                content = base64.b64decode(response.json()["content"]).decode()
+                
+                # Parse the content
+                current_list_id = None
+                new_data = {list_id: {"tasks": [], "descriptions": []} 
+                        for list_id in LIST_NAMES.keys()}
+                
+                lines = content.split('\n')
+                for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
+                        
+                    # Check if this is a list header
+                    if line.startswith('===') and line.endswith('==='):
+                        list_name = line.strip('= ')
+                        # Find the list_id for this list_name
+                        current_list_id = next(
+                            (k for k, v in LIST_NAMES.items() if v == list_name),
+                            None
+                        )
+                    # Check if this is a task
+                    elif line.startswith('- ') and current_list_id:
+                        task = line[2:]  # Remove the '- ' prefix
+                        new_data[current_list_id]["tasks"].append(task)
+                        new_data[current_list_id]["descriptions"].append("")  # Default empty description
+                    # Check if this is a description
+                    elif line.startswith('  Description: ') and current_list_id:
+                        desc = line[14:]  # Remove the '  Description: ' prefix
+                        if new_data[current_list_id]["descriptions"]:
+                            new_data[current_list_id]["descriptions"][-1] = desc
+
+                # Update the lists_data
+                lists_data.set(new_data)
+                github_status_value.set("Successfully loaded from GitHub!")
+            else:
+                github_status_value.set(f"Error loading from GitHub: {response.status_code}")
+
+        except Exception as e:
+            github_status_value.set(f"Error loading: {str(e)}")
+
 
 app = App(app_ui, server)
