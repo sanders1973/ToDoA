@@ -1,210 +1,242 @@
-from shiny import App, reactive, render, ui, session
-import pandas as pd
+from shiny import App, reactive, render, ui, Session
+from typing import Any
+import json
 import base64
 import urllib3
-import json
+from pathlib import Path
+import os
 
-# List names for the 8 different task lists
+# Initialize http
+http = urllib3.PoolManager()
+
+# Task list names
 TASK_LISTS = [
-    "Personal Tasks",
-    "Work Tasks",
-    "Shopping List",
-    "Project Ideas",
-    "Learning Goals",
-    "Home Maintenance",
-    "Health Goals",
-    "Miscellaneous"
+    "Personal", "Work", "Shopping", "Health",
+    "Learning", "Projects", "Family", "Other"
 ]
 
 app_ui = ui.page_fluid(
-    ui.navset_tab(
-        ui.nav_panel("GitHub Settings",
-            ui.card(
-                ui.input_text("github_token", "GitHub Personal Access Token", placeholder="Enter your GitHub token"),
-                ui.input_text("github_repo", "Repository Name", placeholder="username/repository"),
-                ui.input_text("github_file", "File Path", value="tasks.txt"),
-                ui.p("Note: Make sure you have the correct repository permissions."),
-                ui.input_action_button("save_settings", "Save Settings"),
-                ui.input_action_button("clear_settings", "Clear Saved Settings")
-            )
+    ui.panel_title("Task Management System"),
+    
+    # GitHub Settings Card
+    ui.card(
+        ui.card_header("GitHub Settings"),
+        ui.input_text("github_username", "GitHub Username", placeholder="Enter username"),
+        ui.input_text("github_token", "GitHub Token", placeholder="Enter personal access token"),
+        ui.input_text("github_repo", "Repository Name", placeholder="Enter repository name"),
+        ui.input_action_button("save_settings", "Save Settings"),
+        ui.input_action_button("load_settings", "Load Settings")
+    ),
+    
+    ui.layout_sidebar(
+        ui.sidebar(
+            ui.input_select(
+                "selected_list",
+                "Select Task List",
+                choices=TASK_LISTS
+            ),
+            ui.input_text("task_name", "Task Name"),
+            ui.input_text_area("task_description", "Task Description"),
+            ui.input_action_button("add_task", "Add Task"),
+            ui.input_action_button("update_task", "Update Selected Task"),
+            ui.input_action_button("delete_task", "Delete Selected Task"),
+            ui.tags.hr(),
+            ui.input_select(
+                "target_list",
+                "Move Selected Tasks To:",
+                choices=TASK_LISTS
+            ),
+            ui.input_action_button("move_tasks", "Move Tasks"),
+            ui.tags.hr(),
+            ui.input_action_button("save_current", "Save Current List"),
+            ui.input_action_button("load_current", "Load Current List"),
+            ui.tags.hr(),
+            ui.input_action_button("save_all", "Save All Lists"),
+            ui.input_action_button("load_all", "Load All Lists"),
         ),
-        ui.nav_panel("Task Management",
-            ui.layout_sidebar(
-                ui.sidebar(
-                    ui.input_select("current_list", "Select Task List", TASK_LISTS),
-                    ui.input_text("task", "Task", placeholder="Enter task"),
-                    ui.input_text("description", "Description", placeholder="Enter description"),
-                    ui.input_action_button("add", "Add Task"),
-                    ui.hr(),
-                    ui.p("GitHub Operations:"),
-                    ui.input_radio_buttons(
-                        "save_mode",
-                        "Save Mode",
-                        choices=["Current List Only", "All Lists"]
-                    ),
-                    ui.input_action_button("save", "Save to GitHub"),
-                    ui.input_action_button("load", "Load from GitHub"),
-                ),
-                ui.card(
-                    ui.h3(ui.output_text("selected_list_name")),
-                    ui.output_table("task_table")
-                )
-            )
-        )
+        ui.card(
+            ui.card_header("Tasks"),
+            ui.output_ui("task_list"),
+        ),
     )
 )
 
-def server(input, output, session):
-    # Initialize tasks DataFrames for all lists
-    tasks_dict = {list_name: reactive.value(pd.DataFrame(columns=['Task', 'Description'])) 
-                 for list_name in TASK_LISTS}
+def server(input: Any, output: Any, session: Session):
+    # Reactive values for tasks and settings
+    tasks = {list_name: reactive.value([]) for list_name in TASK_LISTS}
+    selected_tasks = reactive.value(set())
+    github_settings = reactive.value({})
     
-    @output
-    @render.text
-    def selected_list_name():
-        return f"Current List: {input.current_list()}"
-
-    @reactive.effect
-    @reactive.event(input.add)
-    def _():
-        if not input.task() or not input.description():
-            ui.notification_show("Please enter both task and description", type="error")
-            return
-            
-        current_list = input.current_list()
-        current_tasks = tasks_dict[current_list].get().copy()
-        new_task = pd.DataFrame({
-            'Task': [input.task()],
-            'Description': [input.description()]
-        })
-        tasks_dict[current_list].set(pd.concat([current_tasks, new_task], ignore_index=True))
+    def get_github_file(filename):
+        if not all(github_settings.get()):
+            return None
         
-        # Clear inputs
-        ui.update_text("task", value="")
-        ui.update_text("description", value="")
-        ui.notification_show("Task added successfully!", type="message")
+        settings = github_settings.get()
+        url = f"https://api.github.com/repos/{settings['username']}/{settings['repo']}/contents/{filename}"
+        headers = {
+            "Authorization": f"token {settings['token']}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        response = http.request('GET', url, headers=headers)
+        if response.status == 200:
+            content = json.loads(response.data.decode('utf-8'))
+            file_content = base64.b64decode(content['content']).decode('utf-8')
+            return json.loads(file_content)
+        return None
+
+    def save_github_file(filename, content):
+        if not all(github_settings.get()):
+            return False
+            
+        settings = github_settings.get()
+        url = f"https://api.github.com/repos/{settings['username']}/{settings['repo']}/contents/{filename}"
+        headers = {
+            "Authorization": f"token {settings['token']}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        # Check if file exists
+        response = http.request('GET', url, headers=headers)
+        data = {
+            "message": f"Update {filename}",
+            "content": base64.b64encode(json.dumps(content).encode('utf-8')).decode('utf-8'),
+        }
+        
+        if response.status == 200:
+            current_file = json.loads(response.data.decode('utf-8'))
+            data["sha"] = current_file["sha"]
+        
+        response = http.request(
+            'PUT',
+            url,
+            headers=headers,
+            body=json.dumps(data).encode('utf-8')
+        )
+        return response.status in (200, 201)
+
+    @reactive.Effect
+    @reactive.event(input.save_settings)
+    def _():
+        github_settings.set({
+            "username": input.github_username(),
+            "token": input.github_token(),
+            "repo": input.github_repo()
+        })
+        # Save settings to bookmark
+        session.write_state(github_settings.get())
+
+    @reactive.Effect
+    @reactive.event(input.load_settings)
+    def _():
+        state = session.read_state()
+        if state:
+            github_settings.set(state)
+            ui.update_text("github_username", value=state.get("username", ""))
+            ui.update_text("github_token", value=state.get("token", ""))
+            ui.update_text("github_repo", value=state.get("repo", ""))
+
+    @reactive.Effect
+    @reactive.event(input.add_task)
+    def _():
+        current_list = tasks[input.selected_list()].get()
+        new_task = {
+            "name": input.task_name(),
+            "description": input.task_description()
+        }
+        current_list.append(new_task)
+        tasks[input.selected_list()].set(current_list)
+        ui.update_text("task_name", value="")
+        ui.update_text("task_description", value="")
+
+    @reactive.Effect
+    @reactive.event(input.delete_task)
+    def _():
+        if not selected_tasks.get():
+            return
+        current_list = tasks[input.selected_list()].get()
+        current_list = [task for i, task in enumerate(current_list) 
+                       if i not in selected_tasks.get()]
+        tasks[input.selected_list()].set(current_list)
+        selected_tasks.set(set())
+
+    @reactive.Effect
+    @reactive.event(input.move_tasks)
+    def _():
+        if not selected_tasks.get():
+            return
+        source_list = tasks[input.selected_list()].get()
+        target_list = tasks[input.target_list()].get()
+        
+        moved_tasks = [task for i, task in enumerate(source_list) 
+                      if i in selected_tasks.get()]
+        remaining_tasks = [task for i, task in enumerate(source_list) 
+                         if i not in selected_tasks.get()]
+        
+        target_list.extend(moved_tasks)
+        tasks[input.target_list()].set(target_list)
+        tasks[input.selected_list()].set(remaining_tasks)
+        selected_tasks.set(set())
+
+    @reactive.Effect
+    @reactive.event(input.save_current)
+    def _():
+        current_list = tasks[input.selected_list()].get()
+        save_github_file(f"{input.selected_list()}.json", current_list)
+
+    @reactive.Effect
+    @reactive.event(input.load_current)
+    def _():
+        data = get_github_file(f"{input.selected_list()}.json")
+        if data:
+            tasks[input.selected_list()].set(data)
+
+    @reactive.Effect
+    @reactive.event(input.save_all)
+    def _():
+        for list_name in TASK_LISTS:
+            save_github_file(f"{list_name}.json", tasks[list_name].get())
+
+    @reactive.Effect
+    @reactive.event(input.load_all)
+    def _():
+        for list_name in TASK_LISTS:
+            data = get_github_file(f"{list_name}.json")
+            if data:
+                tasks[list_name].set(data)
 
     @output
-    @render.table
-    def task_table():
-        return tasks_dict[input.current_list()].get()
-
-    @reactive.effect
-    @reactive.event(input.save)
-    def _():
-        if not all([input.github_token(), input.github_repo(), input.github_file()]):
-            ui.notification_show("Please fill in all GitHub settings", type="error")
-            return
-
-        try:
-            # Prepare the content based on save mode
-            if input.save_mode() == "Current List Only":
-                save_data = {
-                    input.current_list(): tasks_dict[input.current_list()].get().to_dict('records')
-                }
-            else:
-                save_data = {
-                    list_name: tasks_dict[list_name].get().to_dict('records')
-                    for list_name in TASK_LISTS
-                }
-
-            # Convert to JSON string
-            content = json.dumps(save_data, indent=2)
-            content_bytes = content.encode('utf-8')
-            content_base64 = base64.b64encode(content_bytes).decode('utf-8')
-
-            # GitHub API endpoint
-            url = f"https://api.github.com/repos/{input.github_repo()}/contents/{input.github_file()}"
-            
-            headers = {
-                "Authorization": f"token {input.github_token()}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-
-            http = urllib3.PoolManager()
-
-            # First try to get the file (to get the SHA if it exists)
-            try:
-                response = http.request('GET', url, headers=headers)
-                if response.status == 200:
-                    current_file = json.loads(response.data.decode('utf-8'))
-                    sha = current_file['sha']
-                    data = {
-                        "message": "Update tasks",
-                        "content": content_base64,
-                        "sha": sha
-                    }
-                else:
-                    data = {
-                        "message": "Create tasks file",
-                        "content": content_base64
-                    }
-            except:
-                data = {
-                    "message": "Create tasks file",
-                    "content": content_base64
-                }
-
-            # Make the PUT request
-            response = http.request(
-                'PUT',
-                url,
-                body=json.dumps(data).encode('utf-8'),
-                headers=headers
+    @render.ui
+    def task_list():
+        current_tasks = tasks[input.selected_list()].get()
+        
+        task_elements = []
+        for i, task in enumerate(current_tasks):
+            is_selected = i in selected_tasks.get()
+            task_elements.append(
+                ui.div(
+                    {"class": "task-item", "style": "padding: 10px; border: 1px solid #ddd; margin: 5px;"},
+                    ui.input_checkbox(
+                        f"task_{i}",
+                        label=task["name"],
+                        value=is_selected
+                    ),
+                    ui.tags.p(task["description"])
+                )
             )
+        
+        return ui.div(task_elements)
 
-            if response.status in [200, 201]:
-                ui.notification_show("Successfully saved to GitHub!", type="message")
-            else:
-                ui.notification_show("Error saving to GitHub", type="error")
-
-        except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
-
-    @reactive.effect
-    @reactive.event(input.load)
+    @reactive.Effect
     def _():
-        if not all([input.github_token(), input.github_repo(), input.github_file()]):
-            ui.notification_show("Please fill in all GitHub settings", type="error")
-            return
-
-        try:
-            # GitHub API endpoint
-            url = f"https://api.github.com/repos/{input.github_repo()}/contents/{input.github_file()}"
-            
-            headers = {
-                "Authorization": f"token {input.github_token()}",
-                "Accept": "application/vnd.github.v3+json"
-            }
-
-            http = urllib3.PoolManager()
-            response = http.request('GET', url, headers=headers)
-
-            if response.status == 200:
-                content = json.loads(response.data.decode('utf-8'))
-                file_content = base64.b64decode(content['content']).decode('utf-8')
-                
-                # Load JSON data
-                loaded_data = json.loads(file_content)
-
-                if input.save_mode() == "Current List Only":
-                    # Only update current list if it exists in loaded data
-                    current_list = input.current_list()
-                    if current_list in loaded_data:
-                        df = pd.DataFrame(loaded_data[current_list])
-                        tasks_dict[current_list].set(df)
-                else:
-                    # Update all lists that exist in loaded data
-                    for list_name in TASK_LISTS:
-                        if list_name in loaded_data:
-                            df = pd.DataFrame(loaded_data[list_name])
-                            tasks_dict[list_name].set(df)
-                
-                ui.notification_show("Successfully loaded from GitHub!", type="message")
-            else:
-                ui.notification_show("Error loading from GitHub", type="error")
-
-        except Exception as e:
-            ui.notification_show(f"Error: {str(e)}", type="error")
+        current_tasks = tasks[input.selected_list()].get()
+        selected = set()
+        
+        for i in range(len(current_tasks)):
+            checkbox_id = f"task_{i}"
+            if hasattr(input, checkbox_id) and input[checkbox_id]():
+                selected.add(i)
+        
+        selected_tasks.set(selected)
 
 app = App(app_ui, server)
