@@ -39,7 +39,7 @@ app_ui = ui.page_sidebar(
         ui.input_text("github_repo", "Repository (user/repo)"),
         ui.input_text("github_path", "File path (e.g., tasks.txt)"),
         ui.input_action_button("save_github", "Save to GitHub", class_="btn-success"),
-        ui.input_action_button("load_github", "Load from GitHub", class_="btn-info"),
+     #   ui.input_action_button("load_github", "Load from GitHub", class_="btn-info"),
         ui.output_text("github_status_output"),
         width=350
     ),
