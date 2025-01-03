@@ -66,7 +66,6 @@ def server(input, output, session):
     })
     
     editing = reactive.value(False)
-    lists_data = reactive.value(initial_data)
     
     
     def get_current_list():
