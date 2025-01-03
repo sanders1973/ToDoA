@@ -1,4 +1,8 @@
 from shiny import App, reactive, render, ui
+import json
+import base64
+import requests
+import os
 
 # Define the list names
 LIST_NAMES = {
@@ -28,6 +32,14 @@ app_ui = ui.page_sidebar(
         ui.output_ui("task_selector"),
         ui.output_ui("move_controls"),
         ui.output_ui("edit_controls"),
+        ui.hr(),
+        # Add GitHub save controls
+        ui.h4("Save to GitHub"),
+        ui.input_text("github_token", "GitHub Token"),
+        ui.input_text("github_repo", "Repository (user/repo)"),
+        ui.input_text("github_path", "File path (e.g., tasks.txt)"),
+        ui.input_action_button("save_github", "Save to GitHub", class_="btn-success"),
+        ui.output_text("github_status"),
         width=350
     ),
     ui.card(
@@ -238,5 +250,79 @@ def server(input, output, session):
         
         lists_data.set(current_data)
         editing.set(False)
+
+    # Add a reactive value for GitHub save status
+    github_status = reactive.value("")
+
+    @output
+    @render.text
+    def github_status():
+        return github_status.get()
+
+    @reactive.effect
+    @reactive.event(input.save_github)
+    def save_to_github():
+        if not input.github_token() or not input.github_repo() or not input.github_path():
+            github_status.set("Please fill in all GitHub fields")
+            return
+
+        try:
+            # Prepare the data
+            data = lists_data.get()
+            formatted_data = ""
+            for list_id, list_name in LIST_NAMES.items():
+                formatted_data += f"=== {list_name} ===\n"
+                list_content = data[list_id]
+                for task, desc in zip(list_content["tasks"], list_content["descriptions"]):
+                    formatted_data += f"- {task}\n"
+                    if desc.strip():
+                        formatted_data += f"  Description: {desc}\n"
+                formatted_data += "\n"
+
+            # GitHub API endpoint
+            repo = input.github_repo()
+            path = input.github_path()
+            url = f"https://api.github.com/repos/{repo}/contents/{path}"
+
+            # Headers for authentication
+            headers = {
+                "Authorization": f"token {input.github_token()}",
+                "Accept": "application/vnd.github.v3+json"
+            }
+
+            # Check if file exists
+            try:
+                response = requests.get(url, headers=headers)
+                if response.status_code == 200:
+                    # File exists, get the SHA
+                    sha = response.json()["sha"]
+                else:
+                    sha = None
+            except:
+                sha = None
+
+            # Prepare the content
+            content = base64.b64encode(formatted_data.encode()).decode()
+
+            # Prepare the data for the API request
+            data = {
+                "message": "Update task lists",
+                "content": content,
+            }
+            if sha:
+                data["sha"] = sha
+
+            # Make the API request
+            response = requests.put(url, headers=headers, json=data)
+
+            if response.status_code in [200, 201]:
+                github_status.set("Successfully saved to GitHub!")
+            else:
+                github_status.set(f"Error saving to GitHub: {response.status_code}")
+
+        except Exception as e:
+            github_status.set(f"Error: {str(e)}")
+
+    # [Rest of the previous code remains the same]
 
 app = App(app_ui, server)
