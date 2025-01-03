@@ -39,7 +39,7 @@ app_ui = ui.page_sidebar(
         ui.input_text("github_repo", "Repository (user/repo)"),
         ui.input_text("github_path", "File path (e.g., tasks.txt)"),
         ui.input_action_button("save_github", "Save to GitHub", class_="btn-success"),
-        ui.output_text("github_status"),
+        ui.output_text("github_status_output"),
         width=350
     ),
     ui.card(
@@ -257,7 +257,7 @@ def server(input, output, session):
 
     @output
     @render.text
-    def github_status():
+    def github_status_output():
         return github_status.get()
 
     @reactive.effect
