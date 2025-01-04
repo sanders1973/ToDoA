@@ -397,9 +397,9 @@ def server(input, output, session):
 
                 # Update the lists_data
                 lists_data.set(new_data)
-                github_status_value.set("Successfully loaded from GitHub!")
+                github_status.set("Successfully loaded from GitHub!")
             else:
-                github_status_value.set(f"Error loading from GitHub: {response.status_code}")
+                github_status.set(f"Error loading from GitHub: {response.status_code}")
 
         except Exception as e:
             github_status_value.set(f"Error loading: {str(e)}")
