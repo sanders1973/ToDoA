@@ -43,7 +43,7 @@ app_ui = ui.page_sidebar(
         ),
         ui.input_password(  # Simple password input
             "github_token",
-            "github_token",
+            "Github Token",
             value=""
         ),
         
