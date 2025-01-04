@@ -421,14 +421,14 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.load_github)      
     def load_from_github():
-        path= "ToDoList.txt"
+        path = "ToDoList.txt"
         if not input.github_token() or not input.github_repo():
+            github_status.set("Please fill in all GitHub fields")
             return
 
         try:
             # GitHub API endpoint
             repo = input.github_repo()
-            
             url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
             # Headers for authentication
@@ -449,10 +449,12 @@ def server(input, output, session):
                 new_data = {list_id: {"tasks": [], "descriptions": []} 
                         for list_id in LIST_NAMES.keys()}
                 
-                lines = content.split('\n')
-                for line in lines:
-                    line = line.strip()
+                lines = [line.rstrip() for line in content.split('\n')]
+                i = 0
+                while i < len(lines):
+                    line = lines[i]
                     if not line:
+                        i += 1
                         continue
                         
                     # Check if this is a list header
@@ -467,12 +469,17 @@ def server(input, output, session):
                     elif line.startswith('- ') and current_list_id:
                         task = line[2:]  # Remove the '- ' prefix
                         new_data[current_list_id]["tasks"].append(task)
-                        new_data[current_list_id]["descriptions"].append("")  # Default empty description
-                    # Check if this is a description
-                    elif line.startswith('  Description: ') and current_list_id:
-                        desc = line[14:]  # Remove the '  Description: ' prefix
-                        if new_data[current_list_id]["descriptions"]:
-                            new_data[current_list_id]["descriptions"][-1] = desc
+                        
+                        # Look ahead for description
+                        desc = ""
+                        if i + 1 < len(lines):
+                            next_line = lines[i + 1]
+                            if next_line.startswith('  Description:'):
+                                desc = next_line[14:].strip()  # Remove '  Description: ' prefix
+                                i += 1  # Skip the description line
+                        new_data[current_list_id]["descriptions"].append(desc)
+                    
+                    i += 1
 
                 # Update the lists_data
                 lists_data.set(new_data)
@@ -482,6 +489,5 @@ def server(input, output, session):
 
         except Exception as e:
             github_status.set(f"Error loading: {str(e)}")
-
 
 app = App(app_ui, server)
