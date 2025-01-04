@@ -56,6 +56,7 @@ app_ui = ui.page_sidebar(
        
         width=350
     ),
+
     ui.card(
         ui.row(
             ui.column(12,
@@ -68,6 +69,7 @@ app_ui = ui.page_sidebar(
                 )
             )
         ),
+        ui.output_ui("unsaved_changes_alert"),  # Add this line
         ui.output_ui("task_lists_display")
     )
 )
@@ -79,9 +81,31 @@ def server(input, output, session):
         for list_id in LIST_NAMES.keys()
     })
     
+    changes_unsaved = reactive.value(False)
     editing = reactive.value(False)
     
+
+    @output
+    @render.ui
+    def unsaved_changes_alert():
+        if changes_unsaved.get():
+            return ui.div(
+                ui.card(
+                    ui.tags.b("⚠️ You have unsaved changes. Don't forget to save to GitHub!"),
+                    ui.br(),
+                    ui.br(),
+                    ui.input_action_button(
+                        "quick_save", 
+                        "Save Changes to GitHub", 
+                        class_="btn-success"
+                    ),
+                    style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 1em;"
+                )
+            )
+        return ui.div()
     
+        
+
     def get_current_list():
         return lists_data.get()[input.active_list()]
 
@@ -96,7 +120,7 @@ def server(input, output, session):
             current_list["descriptions"].append(input.description())
             
             lists_data.set(current_data)
-            
+            changes_unsaved.set(True)  # Add this line
             ui.update_text("task", value="")
             ui.update_text("description", value="")
 
@@ -246,6 +270,7 @@ def server(input, output, session):
             source_list["descriptions"].pop(i)
         
         lists_data.set(current_data)
+        changes_unsaved.set(True)  # Add this line
 
     @reactive.effect
     @reactive.event(input.start_edit)
@@ -271,6 +296,7 @@ def server(input, output, session):
         current_list["descriptions"][task_idx] = input.edit_description()
         
         lists_data.set(current_data)
+        changes_unsaved.set(True)  # Add this line
         editing.set(False)
 
     # Add a reactive value for GitHub save status
@@ -303,6 +329,7 @@ def server(input, output, session):
             current_list["descriptions"][task_idx-1], current_list["descriptions"][task_idx]
         
         lists_data.set(current_data)
+        changes_unsaved.set(True)  # Add this line
         
         # Update the selection to follow the moved task
         ui.update_checkbox_group(
@@ -332,6 +359,7 @@ def server(input, output, session):
             current_list["descriptions"][task_idx+1], current_list["descriptions"][task_idx]
         
         lists_data.set(current_data)
+        changes_unsaved.set(True)  # Add this line
         
         # Update the selection to follow the moved task
         ui.update_checkbox_group(
@@ -343,7 +371,14 @@ def server(input, output, session):
     
     
     
-    
+    @reactive.effect
+    @reactive.event(input.quick_save)
+    def handle_quick_save():
+        if not input.github_token() or not input.github_repo():
+            github_status.set("Please fill in GitHub credentials in the sidebar first")
+            return
+        # Trigger the existing save function
+        save_to_github()
     
     
     
