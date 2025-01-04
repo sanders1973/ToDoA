@@ -92,14 +92,12 @@ def server(input, output, session):
             return ui.div(
                 ui.card(
                     ui.tags.b("⚠️ You have unsaved changes. Don't forget to save to GitHub!"),
-                    ui.br(),
-                    ui.br(),
                     ui.input_action_button(
                         "quick_save", 
                         "Save Changes to GitHub", 
                         class_="btn-success"
                     ),
-                    style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 1em;"
+                    style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 0;"
                 )
             )
         return ui.div()
