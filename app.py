@@ -359,7 +359,7 @@ def server(input, output, session):
             
             return ui.div(
                 ui.card(
-                    ui.tags.b("⚠️ You have unsaved changes. Don't forget to save to GitHub!"),
+                    ui.tags.b("⚠️unsaved changes"),
                     ui.input_action_button(
                         "quick_save", 
                         "Save Changes to GitHub", 
