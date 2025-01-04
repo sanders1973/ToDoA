@@ -205,9 +205,16 @@ def server(input, output, session):
             )
         else:
             return ui.div(
-                ui.hr(),
-                ui.input_action_button("start_edit", "Edit Selected Task", class_="btn-warning"),
-            )
+                        ui.hr(),
+                        ui.input_action_button("start_edit", "Edit Selected Task", class_="btn-warning"),
+                        ui.br(),
+                        ui.br(),
+                        ui.div(
+                            ui.input_action_button("move_up", "↑ Move Up", class_="btn-secondary"),
+                            ui.input_action_button("move_down", "↓ Move Down", class_="btn-secondary"),
+                            style="display: flex; gap: 10px;"
+                        )
+                    )
 
     @reactive.effect
     @reactive.event(input.move_tasks)
