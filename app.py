@@ -339,7 +339,7 @@ def server(input, output, session):
 
     @reactive.effect
     def load_from_github():
-        if not input.github_token() or not input.github_repo() or not input.github_path():
+        if not input.github_token() or not input.github_repo():
             return
 
         try:
