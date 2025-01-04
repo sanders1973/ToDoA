@@ -279,6 +279,76 @@ def server(input, output, session):
     def github_status_output():
         return github_status.get()
 
+@reactive.effect
+@reactive.event(input.move_up)
+def move_task_up():
+    if not input.selected_tasks() or len(input.selected_tasks()) != 1:
+        return
+        
+    task_idx = int(input.selected_tasks()[0]) - 1
+    if task_idx <= 0:  # Can't move up if already at top
+        return
+        
+    current_data = lists_data.get().copy()
+    current_list = current_data[input.active_list()]
+    
+    # Swap tasks
+    current_list["tasks"][task_idx], current_list["tasks"][task_idx-1] = \
+        current_list["tasks"][task_idx-1], current_list["tasks"][task_idx]
+    
+    # Swap descriptions
+    current_list["descriptions"][task_idx], current_list["descriptions"][task_idx-1] = \
+        current_list["descriptions"][task_idx-1], current_list["descriptions"][task_idx]
+    
+    lists_data.set(current_data)
+    
+    # Update the selection to follow the moved task
+    ui.update_checkbox_group(
+        "selected_tasks",
+        selected=[str(task_idx)]  # Index is 0-based, but UI is 1-based
+    )
+
+@reactive.effect
+@reactive.event(input.move_down)
+def move_task_down():
+    if not input.selected_tasks() or len(input.selected_tasks()) != 1:
+        return
+        
+    task_idx = int(input.selected_tasks()[0]) - 1
+    current_data = lists_data.get().copy()
+    current_list = current_data[input.active_list()]
+    
+    if task_idx >= len(current_list["tasks"]) - 1:  # Can't move down if already at bottom
+        return
+        
+    # Swap tasks
+    current_list["tasks"][task_idx], current_list["tasks"][task_idx+1] = \
+        current_list["tasks"][task_idx+1], current_list["tasks"][task_idx]
+    
+    # Swap descriptions
+    current_list["descriptions"][task_idx], current_list["descriptions"][task_idx+1] = \
+        current_list["descriptions"][task_idx+1], current_list["descriptions"][task_idx]
+    
+    lists_data.set(current_data)
+    
+    # Update the selection to follow the moved task
+    ui.update_checkbox_group(
+        "selected_tasks",
+        selected=[str(task_idx + 2)]  # Index is 0-based, but UI is 1-based
+    )    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
+    
     @reactive.effect
     @reactive.event(input.save_github)
     def save_to_github():
