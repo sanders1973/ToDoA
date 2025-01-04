@@ -143,7 +143,7 @@ def server(input, output, session):
                 for i, (task, desc) in enumerate(zip(current_tasks, current_descriptions), 1):
                     task_html = ui.div(
                         ui.h5(f"•  {task}"),
-                        ui.p("     " + desc) if desc.strip() else None,
+                        ui.p(desc) if desc.strip() else None,
                         style="margin-bottom: 1em;"
                     )
                     task_items.append(task_html)
