@@ -140,16 +140,10 @@ def server(input, output, session):
             if not current_tasks:
                 task_items.append(ui.p("No tasks in this list"))
             else:
-                for task, desc in zip(current_tasks, current_descriptions):
+                for i, (task, desc) in enumerate(zip(current_tasks, current_descriptions), 1):
                     task_html = ui.div(
-                        ui.tags.div(
-                            "• " + task,
-                            style="font-size: 1.1em; font-weight: 500;"
-                        ),
-                        ui.tags.div(
-                            desc,
-                            style="margin-left: 1.5em; font-size: 0.9em; color: #666;"
-                        ) if desc.strip() else None,
+                        ui.h4(f" &#x2022;  {task}"),
+                        ui.p(f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp; &nbsp;{desc}) if desc.strip() else None,
                         style="margin-bottom: 1em;"
                     )
                     task_items.append(task_html)
