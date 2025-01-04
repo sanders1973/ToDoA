@@ -479,7 +479,7 @@ def move_task_down():
                 github_status.set(f"Error loading from GitHub: {response.status_code}")
 
         except Exception as e:
-            github_status_value.set(f"Error loading: {str(e)}")
+            github_status.set(f"Error loading: {str(e)}")
 
 
 app = App(app_ui, server)
