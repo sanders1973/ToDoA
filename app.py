@@ -265,7 +265,8 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.save_github)
     def save_to_github():
-        if not input.github_token() or not input.github_repo() or not input.github_path():
+        path= "ToDoList.txt"
+        if not input.github_token() or not input.github_repo():
             github_status.set("Please fill in all GitHub fields")
             return
 
@@ -284,7 +285,7 @@ def server(input, output, session):
 
             # GitHub API endpoint
             repo = input.github_repo()
-            path = input.github_path()
+            
             url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
             # Headers for authentication
