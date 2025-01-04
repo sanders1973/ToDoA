@@ -35,8 +35,18 @@ app_ui = ui.page_sidebar(
         ui.hr(),
         # Add GitHub save controls
         ui.h4("Save to GitHub"),
-        ui.input_text("github_token", "GitHub Token"),
-        ui.input_text("github_repo", "Repository (user/repo)"),
+        ui.input_text(
+            "github_repo",
+            "Repository (user/repo)",
+            value="",
+            autocomplete="username/rep"  # Hint to browser this is a username field
+        ),
+        ui.input_password(  # Simple password input
+            "github_token",
+            "github_token",
+            value=""
+        ),
+        
         ui.input_text("github_path", "File path (e.g., tasks.txt)"),
         ui.output_text("github_status_output"),
         ui.input_action_button("save_github", "Save to GitHub", class_="btn-success"),        
