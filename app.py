@@ -342,13 +342,14 @@ def server(input, output, session):
     @reactive.effect
     @reactive.event(input.load_github)      
     def load_from_github():
+        path= "ToDoList.txt"
         if not input.github_token() or not input.github_repo():
             return
 
         try:
             # GitHub API endpoint
             repo = input.github_repo()
-            path = input.github_path()
+            
             url = f"https://api.github.com/repos/{repo}/contents/{path}"
 
             # Headers for authentication
