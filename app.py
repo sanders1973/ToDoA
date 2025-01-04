@@ -85,24 +85,7 @@ def server(input, output, session):
     editing = reactive.value(False)
     
 
-    @output
-    @render.ui
-    def unsaved_changes_alert():
-        if changes_unsaved.get():
-            return ui.div(
-                ui.card(
-                    ui.tags.b("⚠️ You have unsaved changes. Don't forget to save to GitHub!"),
-                    ui.input_action_button(
-                        "quick_save", 
-                        "Save Changes to GitHub", 
-                        class_="btn-success"
-                    ),
-                    style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 0;"
-                )
-            )
-        return ui.div()
-    
-        
+           
 
     def get_current_list():
         return lists_data.get()[input.active_list()]
@@ -373,17 +356,16 @@ def server(input, output, session):
     @render.ui
     def unsaved_changes_alert():
         if changes_unsaved.get():
+            
             return ui.div(
                 ui.card(
                     ui.tags.b("⚠️ You have unsaved changes. Don't forget to save to GitHub!"),
-                    ui.br(),
-                    ui.br(),
                     ui.input_action_button(
                         "quick_save", 
                         "Save Changes to GitHub", 
                         class_="btn-success"
-                    ),
-                    style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 1em;"
+                    )
+                   # style="background-color: #fff3cd; color: #856404; border-color: #ffeeba; margin-bottom: 0;"
                 )
             )
         return ui.div()
