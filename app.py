@@ -30,9 +30,11 @@ app_ui = ui.page_sidebar(
         ui.hr(),
         ui.h4("Manage Tasks"),
         ui.output_ui("task_selector"),
-        ui.output_ui("move_controls"),
-        ui.output_ui("edit_controls"),
+        ui.output_ui("edit_controls"),  # Moved up
+        ui.hr(),  # Added hr here
+        ui.output_ui("move_controls"),  # Moved down
         ui.hr(),
+
         # Add GitHub save controls
         ui.h4("Save to GitHub"),
         ui.input_text(
@@ -138,13 +140,19 @@ def server(input, output, session):
             if not current_tasks:
                 task_items.append(ui.p("No tasks in this list"))
             else:
-                for i, (task, desc) in enumerate(zip(current_tasks, current_descriptions), 1):
-                    task_html = ui.div(
-                        ui.h4(f"{i}. {task}"),
-                        ui.p(desc) if desc.strip() else None,
-                        style="margin-bottom: 1em;"
-                    )
-                    task_items.append(task_html)
+                for task, desc in zip(current_tasks, current_descriptions):
+                task_html = ui.div(
+                    ui.tags.div(
+                        "• " + task,
+                        style="font-size: 1.1em; font-weight: 500;"
+                    ),
+                    ui.tags.div(
+                        desc,
+                        style="margin-left: 1.5em; font-size: 0.9em; color: #666;"
+                    ) if desc.strip() else None,
+                    style="margin-bottom: 1em;"
+                )
+                task_items.append(task_html)
             
             column = ui.column(
                 col_width,
