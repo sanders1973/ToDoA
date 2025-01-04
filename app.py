@@ -210,8 +210,8 @@ def server(input, output, session):
                         ui.br(),
                         ui.br(),
                         ui.div(
-                            ui.input_action_button("move_up", "↑ Move Up", class_="btn-secondary"),
-                            ui.input_action_button("move_down", "↓ Move Down", class_="btn-secondary"),
+                            ui.input_action_button("move_up", "↑ Move Up", class_="btn-primary"),
+                            ui.input_action_button("move_down", "↓ Move Down", class_="btn-primary"),
                             style="display: flex; gap: 10px;"
                         )
                     )
