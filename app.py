@@ -337,7 +337,10 @@ def server(input, output, session):
         except Exception as e:
             github_status.set(f"Error: {str(e)}")
 
+
+
     @reactive.effect
+    @reactive.event(input.load_github)      
     def load_from_github():
         if not input.github_token() or not input.github_repo():
             return
